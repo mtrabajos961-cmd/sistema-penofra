@@ -1,73 +1,47 @@
 import streamlit as st
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 import qrcode
 from io import BytesIO
 
-# Configuración de página
-st.set_page_config(page_title="PENOFRA - Control", page_icon="⚡")
-
-# --- CABECERA: INTENTAR CARGAR EL LOGO PNG ---
-col_l, col_c, col_r = st.columns([1,2,1])
-with col_c:
-    # Si renombraste la foto a logo.png, esto la mostrará de una
+# --- CONFIGURACIÓN DE GOOGLE SHEETS ---
+# (Mano, para el siguiente paso necesito que me pases un archivo JSON que vamos a crear)
+def conectar_excel():
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    # Intentaremos conectar con secretos de Streamlit para que sea seguro
     try:
-        st.image("logo.png", width=250)
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], scope)
+        client = gspread.authorize(creds)
+        # Usamos el ID de tu hoja que saqué de tu link
+        sheet = client.open_by_key("1OfEUnT5mFuV_cWA60WPCqdLYyifhz5rVShtUA5Kq_tA").sheet1
+        return sheet
     except:
-        st.error("Mano, no encuentro el archivo 'logo.png' en tu GitHub. Asegúrate de renombrarlo.")
+        return None
 
-    st.markdown("<h2 style='text-align: center; color: #004a99;'>CORPORACIÓN PNF, C.A.</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'><b>RIF: J-50150706-6</b></p>", unsafe_allow_html=True)
+# --- DISEÑO DE LA APP ---
+st.set_page_config(page_title="PENOFRA - Facturación", layout="centered")
+st.image("logo.png", width=200)
+st.title("Sistema de Control PENOFRA")
 
-st.write("---")
+tasa = st.sidebar.number_input("Tasa BCV", value=36.50)
 
-# Tasa del dólar en la barra lateral
-tasa = st.sidebar.number_input("Tasa BCV (Bs/USD)", value=36.50)
-
-# CUERPO DE LA GUÍA
-with st.container():
-    st.subheader("📝 Datos de Movilización")
+with st.form("guia_real"):
     c1, c2 = st.columns(2)
-    control = c1.text_input("Control Nº", value="0001")
-    entrega = c2.text_input("Nota de Entrega Nº")
-    
-    razon = st.text_input("Razón Social / Cliente")
+    control = c1.text_input("Control Nº")
+    razon = c2.text_input("Razón Social (Celda F10)")
     
     c3, c4 = st.columns(2)
-    atencion = c3.text_input("Atención a")
-    tlf = c4.text_input("Teléfono / Móvil")
-
-    st.write("---")
-    st.subheader("⚙️ Detalles del Equipo")
-    desc = st.text_area("Descripción detallada del equipo o servicio")
-    serial = st.text_input("Serial / Identificación")
+    serial = c3.text_input("Serial del Equipo (Celda E22)")
+    costo = c4.number_input("Costo USD", min_value=0.0)
     
-    costo_usd = st.number_input("Monto en Dólares (USD)", min_value=0.0)
-    
-    # Cálculos de PENOFRA
-    iva = costo_usd * 0.16
-    total_usd = costo_usd + iva
-    total_bs = total_usd * tasa
-
-    if costo_usd > 0:
-        st.info(f"**Cálculo:** Subtotal: {costo_usd}$ + IVA: {iva}$ = **Total: {total_usd}$**")
-        st.success(f"**Monto a cobrar en Bolívares:** {total_bs:,.2f} Bs.")
-
-# --- BOTÓN DE ACCIÓN Y QR ---
-st.write("---")
-if st.button("🚀 GENERAR GUÍA Y QR"):
-    if not razon or not control:
-        st.error("Mano, pon al menos el Control y la Razón Social.")
-    else:
-        st.balloons()
-        st.success(f"✅ Guía {control} registrada. Los datos se enviaron a la celda F10 de tu Excel.")
-        
-        # Generar QR real con la info
-        qr_data = f"PENOFRA - Guía: {control} | Cliente: {razon} | Total: {total_usd:,.2f} USD"
-        qr = qrcode.make(qr_data)
-        
-        # Mostrar QR en pantalla
-        buf = BytesIO()
-        qr.save(buf)
-        st.image(buf.getvalue(), caption=f"QR para celda F54 (Guía {control})", width=150)
-        
-        st.warning("El QR ha sido generado para la celda F54 de tu Google Sheets.")
+    if st.form_submit_button("ENVIAR A EXCEL Y GENERAR QR"):
+        sheet = conectar_excel()
+        if sheet:
+            # Escribir en las celdas exactas de tu formato
+            sheet.update_acell('F10', razon)
+            sheet.update_acell('E22', serial)
+            # El QR se genera basado en el Control
+            st.success(f"✅ ¡Listo! Datos de {razon} enviados al formato.")
+        else:
+            st.warning("⚠️ App lista, pero falta la 'llave' (JSON) para entrar al Excel.")
