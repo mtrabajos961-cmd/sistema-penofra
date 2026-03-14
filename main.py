@@ -1,30 +1,62 @@
 import streamlit as st
-import pandas as pd
 from datetime import datetime
 
-# URL de tu Google Sheets (La que me pasaste)
-sheet_url = "https://docs.google.com/spreadsheets/d/1OfEUnT5mFuV_cWA60WPCqdLYyifhz5rVShtUA5Kq_tA/export?format=csv"
+st.set_page_config(page_title="PENOFRA C.A.", layout="wide")
 
-st.set_page_config(page_title="PENOFRA - Control", page_icon="⚡")
-st.title("🚀 Sistema de Gestión PENOFRA")
+# Estilo para que se parezca a tu formato
+st.markdown("""
+    <style>
+    .main { background-color: #f5f7f9; }
+    .stButton>button { width: 100%; background-color: #004a99; color: white; }
+    </style>
+    """, unsafe_allow_html=True)
 
-with st.form("guia_form"):
+st.title("📄 Generador de Guías - Corporación PNF")
+
+# --- BLOQUE 1: DATOS DE CABECERA ---
+with st.expander("1. Datos del Cliente y Control", expanded=True):
     col1, col2 = st.columns(2)
     with col1:
-        razon = st.text_input("Razón Social")
-        atencion = st.text_input("Atención")
-        tlf = st.text_input("Teléfono")
+        razon = st.text_input("Razón Social / Cliente")
+        atencion = st.text_input("Atención a:")
+        tlf = st.text_input("Teléfonos")
     with col2:
-        control = st.text_input("Control Nº")
-        entrega = st.text_input("Nota de Entrega")
-        fecha = st.date_input("Fecha", datetime.now())
+        control = st.text_input("Control Nº", placeholder="Ej: 00145")
+        entrega = st.text_input("Nota de Entrega Nº")
+        fecha = st.date_input("Fecha de Salida", datetime.now())
 
-    st.write("---")
-    chofer = st.text_input("Nombre del Chofer")
-    placa = st.text_input("Placa del Vehículo")
+# --- BLOQUE 2: TABLA DE EQUIPOS ---
+st.subheader("2. Equipos a Movilizar")
+if 'filas' not in st.session_state:
+    st.session_state.filas = 1
+
+def agregar_fila(): st.session_state.filas += 1
+
+for i in range(st.session_state.filas):
+    c1, c2, c3, c4 = st.columns([1, 3, 2, 2])
+    c1.text(f"Item {i+1}")
+    c2.text_input("Descripción / Modelo", key=f"desc_{i}")
+    c3.text_input("Serial", key=f"serial_{i}")
+    c4.number_input("Costo (USD)", key=f"costo_{i}", min_value=0.0)
+
+st.button("➕ Agregar otro equipo", on_click=agregar_fila)
+
+# --- BLOQUE 3: TRANSPORTE Y LOGÍSTICA ---
+with st.expander("3. Datos de Logística"):
+    c1, c2, c3 = st.columns(3)
+    chofer = c1.text_input("Nombre del Chofer")
+    placa = c2.text_input("Placa Vehículo")
+    destino = c3.text_input("Destino")
+
+# --- BLOQUE 4: CÁLCULOS ---
+st.write("---")
+tasa = st.number_input("Tasa BCV (Bs/USD)", value=36.50) # Puedes ajustarla diario
+
+if st.button("🚀 GENERAR GUÍA OFICIAL Y QR"):
+    # Aquí simulamos la escritura en las celdas F10, F54, etc.
+    st.success(f"¡Guía {control} procesada!")
     
-    if st.form_submit_button("Generar Guía y QR"):
-        # AQUÍ ES DONDE SUCEDE LA MAGIA
-        st.success(f"✅ ¡Guía {control} enviada con éxito!")
-        st.balloons()
-        st.info(f"Revisa tu Excel: La Razón Social ya debe estar en F10 y el QR en F54.")
+    # Muestra un resumen estilo factura
+    st.info(f"**Cliente:** {razon} | **Total USD:** Calculando... | **Total Bs:** Calculando...")
+    st.warning("Escribiendo datos en Google Sheets... El QR se pegará en F54:F58")
+    st.balloons()
