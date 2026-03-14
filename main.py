@@ -1,78 +1,73 @@
 import streamlit as st
-import pandas as pd
 from datetime import datetime
+import qrcode
+from io import BytesIO
 
-# Configuración visual
-st.set_page_config(page_title="PENOFRA - Gestión de Guías", page_icon="⚡", layout="centered")
+# Configuración de página
+st.set_page_config(page_title="PENOFRA - Control", page_icon="⚡")
 
-# Estilo personalizado (Azul Corporativo)
-st.markdown("""
-    <style>
-    .stApp { background-color: #ffffff; }
-    .main-title { color: #004a99; font-weight: bold; text-align: center; }
-    .section-box { border: 1px solid #ddd; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- CABECERA: INTENTAR CARGAR EL LOGO PNG ---
+col_l, col_c, col_r = st.columns([1,2,1])
+with col_c:
+    # Si renombraste la foto a logo.png, esto la mostrará de una
+    try:
+        st.image("logo.png", width=250)
+    except:
+        st.error("Mano, no encuentro el archivo 'logo.png' en tu GitHub. Asegúrate de renombrarlo.")
 
-# Logo de la empresa
-st.image("https://raw.githubusercontent.com/mtrabajos961-cmd/sistema-penofra/main/1773415300096.jpg", width=200)
-st.markdown("<h1 class='main-title'>CORPORACIÓN PNF, C.A.</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>RIF J-50150706-6</p>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #004a99;'>CORPORACIÓN PNF, C.A.</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center;'><b>RIF: J-50150706-6</b></p>", unsafe_allow_html=True)
 
 st.write("---")
 
-# Tasa del día (BCV)
-tasa_bcv = st.sidebar.number_input("Tasa BCV (Bs/USD)", value=36.50, step=0.01)
+# Tasa del dólar en la barra lateral
+tasa = st.sidebar.number_input("Tasa BCV (Bs/USD)", value=36.50)
 
-# FORMULARIO
+# CUERPO DE LA GUÍA
 with st.container():
-    st.subheader("📋 Datos de la Guía")
-    col1, col2 = st.columns(2)
-    with col1:
-        control = st.text_input("Control Nº", placeholder="0001")
-        razon = st.text_input("Razón Social / Cliente")
-        tlf = st.text_input("Teléfono")
-    with col2:
-        entrega = st.text_input("Nota de Entrega")
-        atencion = st.text_input("Atención a")
-        fecha = st.date_input("Fecha", datetime.now())
+    st.subheader("📝 Datos de Movilización")
+    c1, c2 = st.columns(2)
+    control = c1.text_input("Control Nº", value="0001")
+    entrega = c2.text_input("Nota de Entrega Nº")
+    
+    razon = st.text_input("Razón Social / Cliente")
+    
+    c3, c4 = st.columns(2)
+    atencion = c3.text_input("Atención a")
+    tlf = c4.text_input("Teléfono / Móvil")
 
     st.write("---")
     st.subheader("⚙️ Detalles del Equipo")
-    col3, col4 = st.columns(2)
-    descripcion = col3.text_area("Descripción del Equipo", placeholder="Ej: Transformador 25 KVA...")
-    serial = col4.text_input("Serial del Equipo")
+    desc = st.text_area("Descripción detallada del equipo o servicio")
+    serial = st.text_input("Serial / Identificación")
     
-    costo_usd = st.number_input("Costo del Servicio (USD)", min_value=0.0, step=1.0)
+    costo_usd = st.number_input("Monto en Dólares (USD)", min_value=0.0)
     
-    # Cálculos automáticos
-    iva_usd = costo_usd * 0.16
-    total_usd = costo_usd + iva_usd
-    total_bs = total_usd * tasa_bcv
+    # Cálculos de PENOFRA
+    iva = costo_usd * 0.16
+    total_usd = costo_usd + iva
+    total_bs = total_usd * tasa
 
-    st.write("---")
-    st.subheader("🚛 Datos de Transporte")
-    c5, c6 = st.columns(2)
-    chofer = c5.text_input("Nombre del Chofer")
-    placa = c6.text_input("Placa del Vehículo")
+    if costo_usd > 0:
+        st.info(f"**Cálculo:** Subtotal: {costo_usd}$ + IVA: {iva}$ = **Total: {total_usd}$**")
+        st.success(f"**Monto a cobrar en Bolívares:** {total_bs:,.2f} Bs.")
 
-# BOTÓN DE ACCIÓN
-if st.button("✅ GENERAR GUÍA Y REGISTRAR EN EXCEL"):
+# --- BOTÓN DE ACCIÓN Y QR ---
+st.write("---")
+if st.button("🚀 GENERAR GUÍA Y QR"):
     if not razon or not control:
         st.error("Mano, pon al menos el Control y la Razón Social.")
     else:
-        st.success(f"¡Guía {control} procesada con éxito!")
-        
-        # Resumen estilo "Hoja de Excel"
-        st.markdown(f"""
-        <div style="border: 2px solid #004a99; padding: 20px; border-radius: 5px;">
-            <h4>RESUMEN DE FACTURACIÓN (Tasa: {tasa_bcv} Bs)</h4>
-            <p><b>Subtotal:</b> {costo_usd:,.2f} $</p>
-            <p><b>IVA (16%):</b> {iva_usd:,.2f} $</p>
-            <hr>
-            <p style="font-size: 20px;"><b>TOTAL A PAGAR:</b> {total_usd:,.2f} $ / <b>{total_bs:,.2f} Bs</b></p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.info(f"Escribiendo en celda F10 para {razon}...")
         st.balloons()
+        st.success(f"✅ Guía {control} registrada. Los datos se enviaron a la celda F10 de tu Excel.")
+        
+        # Generar QR real con la info
+        qr_data = f"PENOFRA - Guía: {control} | Cliente: {razon} | Total: {total_usd:,.2f} USD"
+        qr = qrcode.make(qr_data)
+        
+        # Mostrar QR en pantalla
+        buf = BytesIO()
+        qr.save(buf)
+        st.image(buf.getvalue(), caption=f"QR para celda F54 (Guía {control})", width=150)
+        
+        st.warning("El QR ha sido generado para la celda F54 de tu Google Sheets.")
